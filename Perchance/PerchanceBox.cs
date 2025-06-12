@@ -44,6 +44,7 @@ namespace Perchance
             var hasUserKey = false;
             var status = "";
             var style = styles.TryGetValue(cfg.ArtStyle, out var s) ? s : styles["No Style"];
+            var token = "";
 
             try
             {
@@ -57,7 +58,7 @@ namespace Perchance
                         lblError.Text = "Verifying...";
 
                         cantok = new CancellationTokenSource();
-                        wvCore.Source = new Uri($"https://image-generation.perchance.org/api/verifyUser?thread={Thread}&__cacheBust={rand.NextDouble()}");
+                        wvCore.Source = new Uri($"https://image-generation.perchance.org/api/verifyUser?thread={Thread}&__cacheBust={rand.NextDouble()}{token}");
                         await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
 
                         Dictionary<string, string>? dt;
@@ -83,7 +84,19 @@ namespace Perchance
                             default:
                                 lblError.BringToFront();
                                 lblError.Text = dt["status"] + " " + dt["reason"];
-                                return;
+
+                                cantok = new CancellationTokenSource();
+                                wvCore.Source = new Uri("https://image-generation.perchance.org/embed");
+                                wvCore.BringToFront();
+                                await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
+
+                                if (result != null)
+                                {
+                                    token = "&token=" + result;
+                                    continue;
+                                }
+                                else
+                                    return;
                         }
                     }
 
@@ -243,19 +256,72 @@ namespace Perchance
 
         private void wv2Captcha_CoreWebView2InitializationCompleted(object sender, CoreWebView2InitializationCompletedEventArgs e)
         {
-            wvCore.CoreWebView2.DOMContentLoaded += CoreWebView2_DOMContentLoaded;
+            wvCore.CoreWebView2.DOMContentLoaded += wvCore_DOMContentLoaded;
+
+            wvCore.CoreWebView2.AddHostObjectToScript("shared", promise);
+            wvCore.CoreWebView2.WebResourceRequested += wvCore_WebResourceRequested;
+            wvCore.CoreWebView2.AddWebResourceRequestedFilter("https://image-generation.perchance.org/embed", CoreWebView2WebResourceContext.Document);
         }
 
-        private async void CoreWebView2_DOMContentLoaded(object? sender, CoreWebView2DOMContentLoadedEventArgs e)
+        private void wvCore_WebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+        {
+            var def = e.GetDeferral();
+
+            var stream = new MemoryStream();
+            var writer = new StreamWriter(stream);
+            writer.Write("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
+            </head>
+            <body style="background: dimgray; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 0">
+                <div id="turnstile-widget">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="30" viewBox="0 0 120 30" fill="#fff">
+                        <circle cx="15" cy="15" r="15">
+                            <animate attributeName="r" from="15" to="15" begin="0s" dur="0.8s" values="15;9;15" calcMode="linear" repeatCount="indefinite"/>
+                            <animate attributeName="fill-opacity" from="1" to="1" begin="0s" dur="0.8s" values="1;.5;1" calcMode="linear" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="60" cy="15" r="9" fill-opacity="0.3">
+                            <animate attributeName="r" from="9" to="9" begin="0s" dur="0.8s" values="9;15;9" calcMode="linear" repeatCount="indefinite"/>
+                            <animate attributeName="fill-opacity" from="0.5" to="0.5" begin="0s" dur="0.8s" values=".5;1;.5" calcMode="linear" repeatCount="indefinite"/>
+                        </circle>
+                        <circle cx="105" cy="15" r="15">
+                            <animate attributeName="r" from="15" to="15" begin="0s" dur="0.8s" values="15;9;15" calcMode="linear" repeatCount="indefinite"/>
+                            <animate attributeName="fill-opacity" from="1" to="1" begin="0s" dur="0.8s" values="1;.5;1" calcMode="linear" repeatCount="indefinite"/>
+                        </circle>
+                    </svg>
+                </div>
+                <script type="text/javascript">
+                    turnstile.render('#turnstile-widget', {
+                        sitekey: '0x4AAAAAAAA8g8NphwaSOT59',
+                        theme: 'light',
+                        callback: function(token) {
+                            chrome.webview.hostObjects.shared.SetResult(token);
+                        }
+                    });
+                    setTimeout(() => location.reload(), 40000);
+                </script>
+            </body>
+            </html>
+            """);
+            writer.Flush();
+            stream.Position = 0;
+            e.Response = wvCore.CoreWebView2.Environment.CreateWebResourceResponse(stream, 200, "OK", "");
+
+            def.Complete();
+        }
+
+        private async void wvCore_DOMContentLoaded(object? sender, CoreWebView2DOMContentLoadedEventArgs e)
         {
             var source = wvCore.Source.ToString();
-            if (source.StartsWith("https://image-generation.perchance.org/"))
+            if (source.StartsWith("https://image-generation.perchance.org/api"))
             {
                 var html = await wvCore.ExecuteScriptAsync("document.documentElement.innerText");
                 if (html.StartsWith("\"{"))
                     promise.SetResult(JsonSerializer.Deserialize<string>(html)!);
                 else
-                    promise.SetResult("{{}}");
+                    promise.SetResult("{}");
             }
         }
 
