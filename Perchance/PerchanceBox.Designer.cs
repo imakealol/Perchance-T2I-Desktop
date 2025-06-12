@@ -168,7 +168,6 @@
             wvCore.Location = new Point(0, 25);
             wvCore.Name = "wvCore";
             wvCore.Size = new Size(638, 453);
-            wvCore.Source = new Uri("about:blank", UriKind.Absolute);
             wvCore.TabIndex = 6;
             wvCore.ZoomFactor = 1D;
             wvCore.CoreWebView2InitializationCompleted += wv2Captcha_CoreWebView2InitializationCompleted;

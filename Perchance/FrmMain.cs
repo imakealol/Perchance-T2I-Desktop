@@ -254,9 +254,8 @@ namespace Perchance
 
             for (var i = 0; i < tbrCount.Maximum; i++)
             {
-                var cli = new PerchanceBox
+                var cli = new PerchanceBox(i)
                 {
-                    Thread = i,
                     Dock = DockStyle.Fill,
                     Visible = false,
                     Size = new Size(100, 480)

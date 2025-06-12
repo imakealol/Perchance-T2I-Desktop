@@ -174,11 +174,11 @@ namespace Perchance
             txtDescription.DataBindings.Add(new Binding("Text", config, "RawDescription", true));
             txtDescription.Dock = DockStyle.Fill;
             txtDescription.Location = new Point(0, 25);
-            txtDescription.Multiline = true;
             txtDescription.Name = "txtDescription";
             txtDescription.ScrollBars = RichTextBoxScrollBars.Vertical;
             txtDescription.Size = new Size(294, 70);
             txtDescription.TabIndex = 1;
+            txtDescription.Text = "";
             // 
             // config
             // 
@@ -236,11 +236,11 @@ namespace Perchance
             txtNegative.DataBindings.Add(new Binding("Text", config, "RawNegative", true));
             txtNegative.Dock = DockStyle.Fill;
             txtNegative.Location = new Point(0, 25);
-            txtNegative.Multiline = true;
             txtNegative.Name = "txtNegative";
             txtNegative.ScrollBars = RichTextBoxScrollBars.Vertical;
             txtNegative.Size = new Size(294, 74);
             txtNegative.TabIndex = 1;
+            txtNegative.Text = "";
             // 
             // tsNegatives
             // 
@@ -500,7 +500,7 @@ namespace Perchance
             // tbrCount
             // 
             tbrCount.DataBindings.Add(new Binding("Value", config, "Count", true));
-            tbrCount.Maximum = 30;
+            tbrCount.Maximum = 9;
             tbrCount.Minimum = 1;
             tbrCount.Name = "tbrCount";
             tbrCount.RightToLeftLayout = true;

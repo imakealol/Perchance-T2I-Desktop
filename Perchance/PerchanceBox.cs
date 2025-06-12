@@ -36,7 +36,7 @@ namespace Perchance
         private string? key;
         private string? adAccessCode = "";
         private Configuration? lastCfg;
-        private readonly Promise promise;
+        private Promise promise;
 
         public async Task Generate(Configuration cfg)
         {
@@ -237,11 +237,16 @@ namespace Perchance
             btnKeep.Enabled = true;
         }
 
-        public PerchanceBox()
+        public PerchanceBox(int thread)
         {
             InitializeComponent();
-            promise = new Promise(this);
             SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
+            Thread = thread;
+
+            var env = CoreWebView2Environment.CreateAsync(null, "Thread_" + thread).Result;
+            wvCore.EnsureCoreWebView2Async(env);
+
+            promise = new Promise(this);
         }
 
         private async void btnRefresh_Click(object sender, EventArgs e)
