@@ -42,11 +42,11 @@
             mniCopy = new ToolStripMenuItem();
             mniOpenWith = new ToolStripMenuItem();
             mniOpenLocation = new ToolStripMenuItem();
-            wv2Captcha = new Microsoft.Web.WebView2.WinForms.WebView2();
+            wvCore = new Microsoft.Web.WebView2.WinForms.WebView2();
             tsImage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)ptbImage).BeginInit();
             cmsImage.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)wv2Captcha).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)wvCore).BeginInit();
             SuspendLayout();
             // 
             // tsImage
@@ -159,19 +159,19 @@
             mniOpenLocation.Text = "Open location";
             mniOpenLocation.Click += mniOpenLocation_Click;
             // 
-            // wv2Captcha
+            // wvCore
             // 
-            wv2Captcha.AllowExternalDrop = true;
-            wv2Captcha.CreationProperties = null;
-            wv2Captcha.DefaultBackgroundColor = Color.White;
-            wv2Captcha.Dock = DockStyle.Fill;
-            wv2Captcha.Location = new Point(0, 25);
-            wv2Captcha.Name = "wv2Captcha";
-            wv2Captcha.Size = new Size(638, 453);
-            wv2Captcha.Source = new Uri("about:blank", UriKind.Absolute);
-            wv2Captcha.TabIndex = 6;
-            wv2Captcha.ZoomFactor = 1D;
-            wv2Captcha.CoreWebView2InitializationCompleted += wv2Captcha_CoreWebView2InitializationCompleted;
+            wvCore.AllowExternalDrop = true;
+            wvCore.CreationProperties = null;
+            wvCore.DefaultBackgroundColor = Color.White;
+            wvCore.Dock = DockStyle.Fill;
+            wvCore.Location = new Point(0, 25);
+            wvCore.Name = "wvCore";
+            wvCore.Size = new Size(638, 453);
+            wvCore.Source = new Uri("about:blank", UriKind.Absolute);
+            wvCore.TabIndex = 6;
+            wvCore.ZoomFactor = 1D;
+            wvCore.CoreWebView2InitializationCompleted += wv2Captcha_CoreWebView2InitializationCompleted;
             // 
             // PerchanceBox
             // 
@@ -180,7 +180,7 @@
             BorderStyle = BorderStyle.FixedSingle;
             Controls.Add(ptbImage);
             Controls.Add(lblError);
-            Controls.Add(wv2Captcha);
+            Controls.Add(wvCore);
             Controls.Add(tsImage);
             Name = "PerchanceBox";
             Size = new Size(638, 478);
@@ -188,7 +188,7 @@
             tsImage.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)ptbImage).EndInit();
             cmsImage.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)wv2Captcha).EndInit();
+            ((System.ComponentModel.ISupportInitialize)wvCore).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -206,7 +206,7 @@
         private ContextMenuStrip cmsImage;
         private ToolStripMenuItem mniCopy;
         private ToolStripMenuItem mniOpenWith;
-        private Microsoft.Web.WebView2.WinForms.WebView2 wv2Captcha;
+        private Microsoft.Web.WebView2.WinForms.WebView2 wvCore;
         private ToolStripMenuItem mniOpenLocation;
     }
 }

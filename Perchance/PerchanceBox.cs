@@ -1,8 +1,8 @@
 ﻿using Microsoft.Web.WebView2.Core;
 using System.Data;
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using static Perchance.ArtStyle;
 
 namespace Perchance
@@ -10,14 +10,14 @@ namespace Perchance
     public partial class PerchanceBox : UserControl
     {
         private CancellationTokenSource? cantok;
-        private string? token;
+        private string? result;
 
         [ComVisible(true)]
-        public class SharedObject(PerchanceBox frm)
+        public class Promise(PerchanceBox frm)
         {
-            public void SetToken(string token)
+            public void SetResult(string result)
             {
-                frm.token = token;
+                frm.result = result;
                 frm.cantok!.Cancel();
             }
         }
@@ -36,8 +36,7 @@ namespace Perchance
         private string? key;
         private string? adAccessCode = "";
         private Configuration? lastCfg;
-        private readonly SharedObject shared;
-        private readonly HttpClient client = new();
+        private readonly Promise promise;
 
         public async Task Generate(Configuration cfg)
         {
@@ -48,18 +47,31 @@ namespace Perchance
 
             try
             {
-                lblError.Text = "Generating...";
+                lblError.Text = "Preparing...";
+                lblError.BringToFront();
 
                 for (var repeatCount = 1; repeatCount <= 5; repeatCount++)
                 {
                     if (!hasUserKey)
                     {
-                        var verifyUrl = $"https://image-generation.perchance.org/api/verifyUser?thread={Thread}&__cacheBust={rand.NextDouble()}";
+                        lblError.Text = "Verifying...";
 
-                        var rr = await client.GetAsync(verifyUrl, Global.Cancellation.Token);
-                        var dt = await rr.Content.ReadFromJsonAsync<Dictionary<string, string>>(Global.Cancellation.Token);
-                        if (dt == null)
+                        cantok = new CancellationTokenSource();
+                        wvCore.Source = new Uri($"https://image-generation.perchance.org/api/verifyUser?thread={Thread}&__cacheBust={rand.NextDouble()}");
+                        await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
+
+                        Dictionary<string, string>? dt;
+                        if (result != null)
+                            dt = JsonSerializer.Deserialize<Dictionary<string, string>>(result);
+                        else
                             return;
+
+                        if (dt == null)
+                        {
+                            lblError.BringToFront();
+                            lblError.Text = "Verified failure !";
+                            return;
+                        }
 
                         switch (dt["status"])
                         {
@@ -71,32 +83,11 @@ namespace Perchance
                             default:
                                 lblError.BringToFront();
                                 lblError.Text = dt["status"] + " " + dt["reason"];
-
-                                cantok = new CancellationTokenSource();
-
-                                wv2Captcha.Source = new Uri("https://image-generation.perchance.org/embed");
-                                wv2Captcha.BringToFront();
-
-                                await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
-
-                                if (token != null)
-                                {
-                                    var tokenVerifyUrl = $"https://image-generation.perchance.org/api/verifyUser?token={token}&__cacheBust={rand.NextDouble()}";
-
-                                    var rrr = await client.GetAsync(tokenVerifyUrl, Global.Cancellation.Token);
-                                    var dtt = await rrr.Content.ReadFromJsonAsync<Dictionary<string, string>>(Global.Cancellation.Token);
-                                    if (dtt != null && dtt.TryGetValue("userKey", out var value))
-                                    {
-                                        key = value;
-                                        hasUserKey = true;
-                                    }
-                                }
-                                else
-                                    return;
-                                break;
+                                return;
                         }
                     }
 
+                    lblError.Text = "Generating...";
                     var queryParams = new Dictionary<string, string>
                     {
                         { "prompt", style!.MakePrompt(cfg) },
@@ -104,7 +95,7 @@ namespace Perchance
                         { "resolution", $"{cfg.Width}x{cfg.Height}" },
                         { "guidanceScale", $"{cfg.GuidanceScale}" },
                         { "negativePrompt", style.MakeNegative(cfg) },
-                        { "channel", "free-nsfw-ai-generator" },
+                        { "channel", "pretty-ai" },
                         { "subChannel", "public" },
                         { "userKey", key! },
                         { "adAccessCode", adAccessCode! },
@@ -112,37 +103,66 @@ namespace Perchance
                         { "__cacheBust", $"{rand.NextDouble()}" },
                         { "bdf", $"{rand.NextDouble()}" }
                     }.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}");
+                    cantok = new CancellationTokenSource();
+                    wvCore.Source = new Uri($"https://image-generation.perchance.org/api/generate?{string.Join("&", queryParams)}");
+                    await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
 
-                    var apiUrl = $"https://image-generation.perchance.org/api/generate?{string.Join("&", queryParams)}";
-                    var response = await client.GetAsync(apiUrl, Global.Cancellation.Token);
-                    var data = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>(Global.Cancellation.Token);
+                    Dictionary<string, object>? data;
+                    if (result != null)
+                        data = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
+                    else
+                        return;
 
                     if (data == null)
                     {
                         lblError.BringToFront();
-                        lblError.Text = "generate failure !";
+                        lblError.Text = "Generated failure !";
                         return;
                     }
 
                     switch (status = data["status"].ToString())
                     {
                         case "success":
+                            lblError.Text = "Downloading...";
+
                             var imageId = data["imageId"];
-                            var downloadUrl = $"https://image-generation.perchance.org/api/downloadTemporaryImage?imageId={imageId}";
 
-                            var imageResponse = await client.GetAsync(downloadUrl, Global.Cancellation.Token);
-                            var imageBytes = await imageResponse.Content.ReadAsByteArrayAsync(Global.Cancellation.Token);
-                            var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "history", cfg.Hash, data["seed"] + ".jpg");
-                            await File.WriteAllBytesAsync(dir, imageBytes, Global.Cancellation.Token);
+                            cantok = new CancellationTokenSource();
+                            wvCore.Source = new Uri($"https://image-generation.perchance.org/api/downloadTemporaryImage?imageId={imageId}");
+                            await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
+                            if (result != null)
+                            {
+                                var result = await wvCore.ExecuteScriptAsync(@"(() => {
+                                    const img = document.querySelector('img');
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.naturalWidth;
+                                    canvas.height = img.naturalHeight;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(img, 0, 0);
+                                    return canvas.toDataURL('image/png');
+                                })()");
+                                string base64Data = result.Trim('"').Replace("\\u003d", "=").Replace("\\", "");
+                                string base64 = base64Data.Substring(base64Data.IndexOf(',') + 1);
+                                byte[] imageBytes = Convert.FromBase64String(base64);
 
-                            txtSeed.Text = data["seed"].ToString();
-                            ptbImage.BringToFront();
-                            ptbImage.ImageLocation = dir;
+                                var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "history", cfg.Hash, data["seed"] + ".jpg");
+                                await File.WriteAllBytesAsync(dir, imageBytes, Global.Cancellation.Token);
+                                ptbImage.ImageLocation = dir;
+
+                                txtSeed.Text = data["seed"].ToString();
+                                ptbImage.BringToFront();
+                            }
+                            else
+                                return;
                             return;
                         case "invalid_ad_access_code":
+                            lblError.Text = "Bypass Ads Protect...";
+
                             var accessCodeUrl = $"https://perchance.org/api/getAccessCodeForAdPoweredStuff?__cacheBust={rand.NextDouble()}";
-                            var resp = await client.GetAsync(accessCodeUrl, Global.Cancellation.Token);
-                            adAccessCode = await resp.Content.ReadAsStringAsync(Global.Cancellation.Token);
+                            cantok = new CancellationTokenSource();
+                            wvCore.Source = new Uri(accessCodeUrl);
+                            await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
+                            adAccessCode = result;
                             break;
                         case "gen_failure":
                         case "waiting_for_prev_request_to_finish":
@@ -207,8 +227,7 @@ namespace Perchance
         public PerchanceBox()
         {
             InitializeComponent();
-            shared = new SharedObject(this);
-
+            promise = new Promise(this);
             SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
         }
 
@@ -224,58 +243,20 @@ namespace Perchance
 
         private void wv2Captcha_CoreWebView2InitializationCompleted(object sender, CoreWebView2InitializationCompletedEventArgs e)
         {
-            wv2Captcha.CoreWebView2.AddHostObjectToScript("shared", shared);
-            wv2Captcha.CoreWebView2.WebResourceRequested += wv2Captcha_WebResourceRequested;
-            wv2Captcha.CoreWebView2.AddWebResourceRequestedFilter("https://image-generation.perchance.org/embed", CoreWebView2WebResourceContext.Document);
+            wvCore.CoreWebView2.DOMContentLoaded += CoreWebView2_DOMContentLoaded;
         }
 
-        private void wv2Captcha_WebResourceRequested(object? sender, CoreWebView2WebResourceRequestedEventArgs e)
+        private async void CoreWebView2_DOMContentLoaded(object? sender, CoreWebView2DOMContentLoadedEventArgs e)
         {
-            var def = e.GetDeferral();
-
-            var stream = new MemoryStream();
-            var writer = new StreamWriter(stream);
-            writer.Write("""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
-            </head>
-            <body style="background: dimgray; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 0">
-                <div id="turnstile-widget">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="30" viewBox="0 0 120 30" fill="#fff">
-                        <circle cx="15" cy="15" r="15">
-                            <animate attributeName="r" from="15" to="15" begin="0s" dur="0.8s" values="15;9;15" calcMode="linear" repeatCount="indefinite"/>
-                            <animate attributeName="fill-opacity" from="1" to="1" begin="0s" dur="0.8s" values="1;.5;1" calcMode="linear" repeatCount="indefinite"/>
-                        </circle>
-                        <circle cx="60" cy="15" r="9" fill-opacity="0.3">
-                            <animate attributeName="r" from="9" to="9" begin="0s" dur="0.8s" values="9;15;9" calcMode="linear" repeatCount="indefinite"/>
-                            <animate attributeName="fill-opacity" from="0.5" to="0.5" begin="0s" dur="0.8s" values=".5;1;.5" calcMode="linear" repeatCount="indefinite"/>
-                        </circle>
-                        <circle cx="105" cy="15" r="15">
-                            <animate attributeName="r" from="15" to="15" begin="0s" dur="0.8s" values="15;9;15" calcMode="linear" repeatCount="indefinite"/>
-                            <animate attributeName="fill-opacity" from="1" to="1" begin="0s" dur="0.8s" values="1;.5;1" calcMode="linear" repeatCount="indefinite"/>
-                        </circle>
-                    </svg>
-                </div>
-                <script type="text/javascript">
-                    turnstile.render('#turnstile-widget', {
-                        sitekey: '0x4AAAAAAAA8g8NphwaSOT59',
-                        theme: 'light',
-                        callback: function(token) {
-                            chrome.webview.hostObjects.shared.SetToken(token);
-                        }
-                    });
-                    setTimeout(() => location.reload(), 40000);
-                </script>
-            </body>
-            </html>
-            """);
-            writer.Flush();
-            stream.Position = 0;
-            e.Response = wv2Captcha.CoreWebView2.Environment.CreateWebResourceResponse(stream, 200, "OK", "");
-
-            def.Complete();
+            var source = wvCore.Source.ToString();
+            if (source.StartsWith("https://image-generation.perchance.org/"))
+            {
+                var html = await wvCore.ExecuteScriptAsync("document.documentElement.innerText");
+                if (html.StartsWith("\"{"))
+                    promise.SetResult(JsonSerializer.Deserialize<string>(html)!);
+                else
+                    promise.SetResult("{{}}");
+            }
         }
 
         private void cmsImage_Opening(object sender, System.ComponentModel.CancelEventArgs e)

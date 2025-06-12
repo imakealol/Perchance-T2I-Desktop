@@ -1,20 +1,38 @@
-﻿using System.Xml.Serialization;
+﻿using System.Xml;
+using System.Xml.Serialization;
 
 namespace Perchance
 {
     [Serializable]
     public class Configuration
     {
+        private static readonly XmlDocument xdoc = new XmlDocument();
+
         [XmlIgnore]
         public string Description { get; set; } = "";
         [XmlIgnore]
         public string Negative { get; set; } = "";
         [XmlIgnore]
         public DateTime CreatedDate { get; set; }
+        [XmlIgnore]
+        public string RawDescription { get; set; } = "attractive woman";
+        [XmlIgnore]
+        public string RawNegative { get; set; } = "";
+
+        [XmlElement("RawDescription")]
+        public XmlNode RawDescriptionCData
+        {
+            get => xdoc.CreateCDataSection(RawDescription);
+            set => RawDescription = value?.Value ?? "";
+        }
+        [XmlElement("RawNegative")]
+        public XmlNode RawNegativeCData
+        {
+            get => xdoc.CreateCDataSection(RawNegative);
+            set => RawNegative = value?.Value ?? "";
+        }
 
         public string Language { get; set; } = "en";
-        public string RawDescription { get; set; } = "attractive woman";
-        public string RawNegative { get; set; } = "";
         public string ArtStyle { get; set; } = "Painted Anime";
         public int GuidanceScale { get; set; } = 7;
         public int Width { get; set; } = 512;

@@ -34,13 +34,13 @@ namespace Perchance
             spcMain = new SplitContainer();
             splitContainer6 = new SplitContainer();
             splitContainer5 = new SplitContainer();
-            txtDescription = new TextBox();
+            txtDescription = new RichTextBox();
             config = new BindingSource(components);
             tsDescription = new ToolStrip();
             toolStripLabel9 = new ToolStripLabel();
             btnVietnamese = new ToolStripButton();
             btnEnglish = new ToolStripButton();
-            txtNegative = new TextBox();
+            txtNegative = new RichTextBox();
             tsNegatives = new ToolStrip();
             toolStripLabel10 = new ToolStripLabel();
             panHistory = new Panel();
@@ -176,7 +176,7 @@ namespace Perchance
             txtDescription.Location = new Point(0, 25);
             txtDescription.Multiline = true;
             txtDescription.Name = "txtDescription";
-            txtDescription.ScrollBars = ScrollBars.Vertical;
+            txtDescription.ScrollBars = RichTextBoxScrollBars.Vertical;
             txtDescription.Size = new Size(294, 70);
             txtDescription.TabIndex = 1;
             // 
@@ -238,7 +238,7 @@ namespace Perchance
             txtNegative.Location = new Point(0, 25);
             txtNegative.Multiline = true;
             txtNegative.Name = "txtNegative";
-            txtNegative.ScrollBars = ScrollBars.Vertical;
+            txtNegative.ScrollBars = RichTextBoxScrollBars.Vertical;
             txtNegative.Size = new Size(294, 74);
             txtNegative.TabIndex = 1;
             // 
@@ -664,8 +664,8 @@ namespace Perchance
         #endregion
 
         private SplitContainer spcMain;
-        private TextBox txtDescription;
-        private TextBox txtNegative;
+        private RichTextBox txtDescription;
+        private RichTextBox txtNegative;
         private ToolStrip toolbar;
         private ToolStripButton btnGenerate;
         private ToolStripLabel toolStripLabel2;
