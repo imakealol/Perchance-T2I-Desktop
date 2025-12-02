@@ -500,7 +500,7 @@ namespace Perchance
             // tbrCount
             // 
             tbrCount.DataBindings.Add(new Binding("Value", config, "Count", true));
-            tbrCount.Maximum = 9;
+            tbrCount.Maximum = 99;
             tbrCount.Minimum = 1;
             tbrCount.Name = "tbrCount";
             tbrCount.RightToLeftLayout = true;

@@ -51,7 +51,7 @@ namespace Perchance
                 lblError.Text = "Preparing...";
                 lblError.BringToFront();
 
-                for (var repeatCount = 1; repeatCount <= 5; repeatCount++)
+                while (!btnRefresh.Enabled)
                 {
                     if (!hasUserKey)
                     {
@@ -81,9 +81,19 @@ namespace Perchance
                                 key = dt["userKey"];
                                 hasUserKey = false;
                                 break;
+                            case "too_many_requests":
+                                lblError.BringToFront();
+                                lblError.Text = dt["status"];
+                                if (dt.TryGetValue("reason", out var reason))
+                                    lblError.Text += " " + reason;
+                                await Task.Delay(5000, Global.Cancellation.Token);
+                                continue;
                             default:
                                 lblError.BringToFront();
-                                lblError.Text = dt["status"] + " " + dt["reason"];
+                                lblError.Text = dt["status"];
+                                if (dt.TryGetValue("reason", out reason))
+                                    lblError.Text += " " + reason;
+                                await Task.Delay(5000, Global.Cancellation.Token);
 
                                 cantok = new CancellationTokenSource();
                                 wvCore.Source = new Uri("https://image-generation.perchance.org/embed");
@@ -188,7 +198,7 @@ namespace Perchance
                     }
 
                     lblError.BringToFront();
-                    lblError.Text = $"{status} (r: {repeatCount}/5)";
+                    lblError.Text = $"{status} (retry...)";
                 }
             }
             catch (Exception e)
@@ -305,7 +315,7 @@ namespace Perchance
                             chrome.webview.hostObjects.shared.SetResult(token);
                         }
                     });
-                    setTimeout(() => location.reload(), 40000);
+                    setTimeout(() => location.reload(), 5000);
                 </script>
             </body>
             </html>

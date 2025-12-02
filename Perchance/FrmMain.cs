@@ -13,7 +13,7 @@ namespace Perchance
         private static partial Regex ImportRegex();
 
         private static readonly Random rand = new((int)(DateTime.Now.Ticks % int.MaxValue));
-        private List<PerchanceBox> clients = [];
+        private List<PollinationBox> clients = [];
         private readonly Configuration cfg = Configuration.Load();
 
         private readonly Dictionary<string, List<string>> repl = new()
@@ -254,7 +254,7 @@ namespace Perchance
 
             for (var i = 0; i < tbrCount.Maximum; i++)
             {
-                var cli = new PerchanceBox(i)
+                var cli = new PollinationBox(i)
                 {
                     Dock = DockStyle.Fill,
                     Visible = false,
