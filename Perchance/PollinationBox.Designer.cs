@@ -125,6 +125,7 @@
             ptbImage.SizeMode = PictureBoxSizeMode.Zoom;
             ptbImage.TabIndex = 5;
             ptbImage.TabStop = false;
+            ptbImage.DoubleClick += ptbImage_DoubleClick;
             // 
             // cmsImage
             // 

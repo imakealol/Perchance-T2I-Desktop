@@ -1,13 +1,10 @@
-﻿using Microsoft.Web.WebView2.Core;
-using System.Data;
-using System.Diagnostics;
-using System.Net;
+﻿using System.Diagnostics;
 using System.Web;
 using static Perchance.ArtStyle;
 
 namespace Perchance
 {
-    public partial class PollinationBox : UserControl
+    public partial class PollinationBox : UserControl, IBox
     {
         public int Thread
         {
@@ -32,10 +29,12 @@ namespace Perchance
                 if (txtSeed.Text == "-1" || string.IsNullOrWhiteSpace(txtSeed.Text))
                     txtSeed.Text = rand.Next().ToString();
 
-                var url = $"https://image.pollinations.ai/prompt/{HttpUtility.UrlEncode(style!.MakePrompt(cfg) + " and not (" + style!.MakeNegative(cfg) + ")")}?width={(cfg.Width == 512 ? 768 : 1024)}&height={(cfg.Height == 512 ? 768 : 1024)}&model=flux&seed={txtSeed.Text}&nologo=true&private=true&temperature={cfg.GuidanceScale / 10.0f}";
+                var hc = new HttpClient();
+                var prompt = $"Make an image with:\n\n**Positive**:\n{style!.MakePrompt(cfg)}\n\n**Negative**:\n{style!.MakeNegative(cfg)}";
+
+                var url = $"https://image.pollinations.ai/prompt/{HttpUtility.UrlEncode(prompt)}?width={cfg.Width}&height={cfg.Height}&model=flux&seed={txtSeed.Text}&nologo=true&private=true&temperature={cfg.GuidanceScale / 10.0f}";
                 var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "history", cfg.Hash, txtSeed.Text + ".jpg");
 
-                var hc = new HttpClient();
                 using var stream = await hc.GetStreamAsync(url, Global.Cancellation.Token);
                 using var fs = new FileStream(dir, FileMode.OpenOrCreate);
                 await stream.CopyToAsync(fs, Global.Cancellation.Token);
@@ -131,6 +130,12 @@ namespace Perchance
         {
             if (cmsImage.SourceControl is PictureBox ptb)
                 Process.Start("explorer.exe", "/select, \"" + ptb.ImageLocation + "\"");
+        }
+
+        private void ptbImage_DoubleClick(object sender, EventArgs e)
+        {
+            if (ptbImage.ImageLocation is not null)
+                Process.Start("explorer.exe", "\"" + ptbImage.ImageLocation + "\"");
         }
     }
 }

@@ -7,7 +7,7 @@ using static Perchance.ArtStyle;
 
 namespace Perchance
 {
-    public partial class PerchanceBox : UserControl
+    public partial class PerchanceBox : UserControl, IBox
     {
         private CancellationTokenSource? cantok;
         private string? result;
@@ -33,15 +33,15 @@ namespace Perchance
         }
 
         private int thread;
-        private string? key;
-        private string? adAccessCode = "";
         private Configuration? lastCfg;
         private Promise promise;
+
+        private string? useKey;
+        private string? adAccessCode = "";
 
         public async Task Generate(Configuration cfg)
         {
             lastCfg = cfg;
-            var hasUserKey = false;
             var status = "";
             var style = styles.TryGetValue(cfg.ArtStyle, out var s) ? s : styles["No Style"];
             var token = "";
@@ -53,51 +53,46 @@ namespace Perchance
 
                 while (!btnRefresh.Enabled)
                 {
-                    if (!hasUserKey)
+                    if (useKey == null)
                     {
-                        lblError.Text = "Verifying...";
+                        lblError.Text = "Verify";
 
                         cantok = new CancellationTokenSource();
                         wvCore.Source = new Uri($"https://image-generation.perchance.org/api/verifyUser?thread={Thread}&__cacheBust={rand.NextDouble()}{token}");
                         await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
 
-                        Dictionary<string, string>? dt;
+                        Dictionary<string, string>? dt = null;
                         if (result != null)
                             dt = JsonSerializer.Deserialize<Dictionary<string, string>>(result);
-                        else
-                            return;
 
                         if (dt == null)
                         {
+                            lblError.Text += ": failure !";
                             lblError.BringToFront();
-                            lblError.Text = "Verified failure !";
                             return;
                         }
 
-                        switch (dt["status"])
+                        switch (status = dt["status"])
                         {
                             case "already_verified":
                             case "success":
-                                key = dt["userKey"];
-                                hasUserKey = false;
+                                useKey = dt["userKey"];
                                 break;
                             case "too_many_requests":
+                                lblError.Text += $": {status?.Replace("_", " ")}!";
                                 lblError.BringToFront();
-                                lblError.Text = dt["status"];
-                                if (dt.TryGetValue("reason", out var reason))
-                                    lblError.Text += " " + reason;
-                                await Task.Delay(5000, Global.Cancellation.Token);
-                                continue;
+                                return;
                             default:
+                                lblError.Text += $": {status?.Replace("_", " ")}";
+                                if (dt.TryGetValue("reason", out var reason))
+                                    lblError.Text += " (" + reason + ")";
+                                lblError.Text += "!";
                                 lblError.BringToFront();
-                                lblError.Text = dt["status"];
-                                if (dt.TryGetValue("reason", out reason))
-                                    lblError.Text += " " + reason;
                                 await Task.Delay(5000, Global.Cancellation.Token);
 
+                                lblError.Text = "Turnstile bypass";
                                 cantok = new CancellationTokenSource();
                                 wvCore.Source = new Uri("https://image-generation.perchance.org/embed");
-                                wvCore.BringToFront();
                                 await Task.Run(() => cantok.Token.WaitHandle.WaitOne(), Global.Cancellation.Token);
 
                                 if (result != null)
@@ -106,52 +101,70 @@ namespace Perchance
                                     continue;
                                 }
                                 else
+                                {
+                                    lblError.Text += ": failure!";
+                                    lblError.BringToFront();
                                     return;
+                                }
                         }
                     }
 
-                    lblError.Text = "Generating...";
+                    if (adAccessCode == null)
+                    {
+                        lblError.Text = "Get AdAccessCode";
+                        lblError.BringToFront();
+
+                        var accessCodeUrl = $"https://perchance.org/api/getAccessCodeForAdPoweredStuff?__cacheBust={rand.NextDouble()}";
+                        cantok = new CancellationTokenSource();
+                        wvCore.Source = new Uri(accessCodeUrl);
+                        await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
+                        if (result != null)
+                            adAccessCode = result;
+                        else
+                        {
+                            lblError.Text += ": failure!";
+                            lblError.BringToFront();
+                            return;
+                        }
+                    }
+
+                    lblError.Text = "Generate";
+                    lblError.BringToFront();
                     var queryParams = new Dictionary<string, string>
                     {
-                        { "prompt", style!.MakePrompt(cfg) },
-                        { "seed", txtSeed.Text },
-                        { "resolution", $"{cfg.Width}x{cfg.Height}" },
+                        { "adAccessCode", adAccessCode! },
+                        { "channel", "pretty-ai" },
                         { "guidanceScale", $"{cfg.GuidanceScale}" },
                         { "negativePrompt", style.MakeNegative(cfg) },
-                        { "channel", "pretty-ai" },
-                        { "subChannel", "public" },
-                        { "userKey", key! },
-                        { "adAccessCode", adAccessCode! },
+                        { "prompt", style!.MakePrompt(cfg) },
                         { "requestId", $"{rand.NextDouble()}" },
-                        { "__cacheBust", $"{rand.NextDouble()}" },
-                        { "bdf", $"{rand.NextDouble()}" }
+                        { "resolution", $"{cfg.Width}x{cfg.Height}" },
+                        { "seed", txtSeed.Text },
+                        { "subChannel", "public" },
+                        { "userKey", useKey! },
                     }.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}");
                     cantok = new CancellationTokenSource();
                     wvCore.Source = new Uri($"https://image-generation.perchance.org/api/generate?{string.Join("&", queryParams)}");
                     await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
 
-                    Dictionary<string, object>? data;
+                    Dictionary<string, object>? data = null;
                     if (result != null)
                         data = JsonSerializer.Deserialize<Dictionary<string, object>>(result);
-                    else
-                        return;
 
                     if (data == null)
                     {
+                        lblError.Text += ": failure!";
                         lblError.BringToFront();
-                        lblError.Text = "Generated failure !";
                         return;
                     }
 
                     switch (status = data["status"].ToString())
                     {
                         case "success":
-                            lblError.Text = "Downloading...";
-
-                            var imageId = data["imageId"];
+                            lblError.Text = "Download";
 
                             cantok = new CancellationTokenSource();
-                            wvCore.Source = new Uri($"https://image-generation.perchance.org/api/downloadTemporaryImage?imageId={imageId}");
+                            wvCore.Source = new Uri($"https://image-generation.perchance.org/api/downloadTemporaryImage?imageId={data["imageId"]}");
                             await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
                             if (result != null)
                             {
@@ -168,43 +181,43 @@ namespace Perchance
                                 string base64 = base64Data.Substring(base64Data.IndexOf(',') + 1);
                                 byte[] imageBytes = Convert.FromBase64String(base64);
 
+                                txtSeed.Text = data["seed"].ToString();
+
                                 var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "history", cfg.Hash, data["seed"] + ".jpg");
                                 await File.WriteAllBytesAsync(dir, imageBytes, Global.Cancellation.Token);
                                 ptbImage.ImageLocation = dir;
-
-                                txtSeed.Text = data["seed"].ToString();
                                 ptbImage.BringToFront();
                             }
                             else
-                                return;
+                            {
+                                lblError.Text += ": failure!";
+                                lblError.BringToFront();
+                            }
                             return;
-                        case "invalid_ad_access_code":
-                            lblError.Text = "Bypass Ads Protect...";
-
-                            var accessCodeUrl = $"https://perchance.org/api/getAccessCodeForAdPoweredStuff?__cacheBust={rand.NextDouble()}";
-                            cantok = new CancellationTokenSource();
-                            wvCore.Source = new Uri(accessCodeUrl);
-                            await Task.Run(cantok.Token.WaitHandle.WaitOne, Global.Cancellation.Token);
-                            adAccessCode = result;
+                        case "invalid_key":
+                            useKey = null;
                             break;
+                        case "invalid_ad_access_code":
+                            adAccessCode = null;
+                            break;
+                        case "too_many_requests":
+                            lblError.Text += $": {status?.Replace("_", " ")}!";
+                            lblError.BringToFront();
+                            return;
                         case "gen_failure":
                         case "waiting_for_prev_request_to_finish":
-                            await Task.Delay(3000, Global.Cancellation.Token);
-                            break;
-                        case "invalid_key":
-                            await Task.Delay(3000, Global.Cancellation.Token);
-                            hasUserKey = false;
                             break;
                     }
 
+                    lblError.Text += $": {status?.Replace("_", " ")}!";
                     lblError.BringToFront();
-                    lblError.Text = $"{status} (retry...)";
+                    await Task.Delay(3000, Global.Cancellation.Token);
                 }
             }
             catch (Exception e)
             {
-                lblError.BringToFront();
                 lblError.Text = e.Message;
+                lblError.BringToFront();
             }
             finally
             {

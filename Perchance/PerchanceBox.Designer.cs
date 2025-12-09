@@ -43,10 +43,16 @@
             mniOpenWith = new ToolStripMenuItem();
             mniOpenLocation = new ToolStripMenuItem();
             wvCore = new Microsoft.Web.WebView2.WinForms.WebView2();
+            tbcMain = new TabControl();
+            tpgResult = new TabPage();
+            tpgDebug = new TabPage();
             tsImage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)ptbImage).BeginInit();
             cmsImage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)wvCore).BeginInit();
+            tbcMain.SuspendLayout();
+            tpgResult.SuspendLayout();
+            tpgDebug.SuspendLayout();
             SuspendLayout();
             // 
             // tsImage
@@ -110,9 +116,9 @@
             lblError.BackColor = Color.White;
             lblError.Dock = DockStyle.Fill;
             lblError.ForeColor = Color.Red;
-            lblError.Location = new Point(0, 25);
+            lblError.Location = new Point(0, 0);
             lblError.Name = "lblError";
-            lblError.Size = new Size(638, 453);
+            lblError.Size = new Size(628, 420);
             lblError.TabIndex = 4;
             lblError.TextAlign = ContentAlignment.MiddleCenter;
             // 
@@ -121,9 +127,9 @@
             ptbImage.BackColor = Color.White;
             ptbImage.ContextMenuStrip = cmsImage;
             ptbImage.Dock = DockStyle.Fill;
-            ptbImage.Location = new Point(0, 25);
+            ptbImage.Location = new Point(0, 0);
             ptbImage.Name = "ptbImage";
-            ptbImage.Size = new Size(638, 453);
+            ptbImage.Size = new Size(628, 420);
             ptbImage.SizeMode = PictureBoxSizeMode.Zoom;
             ptbImage.TabIndex = 5;
             ptbImage.TabStop = false;
@@ -165,21 +171,57 @@
             wvCore.CreationProperties = null;
             wvCore.DefaultBackgroundColor = Color.White;
             wvCore.Dock = DockStyle.Fill;
-            wvCore.Location = new Point(0, 25);
+            wvCore.Location = new Point(0, 0);
             wvCore.Name = "wvCore";
-            wvCore.Size = new Size(638, 453);
+            wvCore.Size = new Size(630, 422);
             wvCore.TabIndex = 6;
             wvCore.ZoomFactor = 1D;
             wvCore.CoreWebView2InitializationCompleted += wv2Captcha_CoreWebView2InitializationCompleted;
+            // 
+            // tbcMain
+            // 
+            tbcMain.Appearance = TabAppearance.Buttons;
+            tbcMain.Controls.Add(tpgResult);
+            tbcMain.Controls.Add(tpgDebug);
+            tbcMain.Dock = DockStyle.Fill;
+            tbcMain.Location = new Point(0, 25);
+            tbcMain.Multiline = true;
+            tbcMain.Name = "tbcMain";
+            tbcMain.SelectedIndex = 0;
+            tbcMain.Size = new Size(638, 453);
+            tbcMain.SizeMode = TabSizeMode.Fixed;
+            tbcMain.TabIndex = 7;
+            // 
+            // tpgResult
+            // 
+            tpgResult.BorderStyle = BorderStyle.FixedSingle;
+            tpgResult.Controls.Add(lblError);
+            tpgResult.Controls.Add(ptbImage);
+            tpgResult.Location = new Point(4, 27);
+            tpgResult.Margin = new Padding(0);
+            tpgResult.Name = "tpgResult";
+            tpgResult.Size = new Size(630, 422);
+            tpgResult.TabIndex = 0;
+            tpgResult.Text = "Result";
+            tpgResult.UseVisualStyleBackColor = true;
+            // 
+            // tpgDebug
+            // 
+            tpgDebug.Controls.Add(wvCore);
+            tpgDebug.Location = new Point(4, 27);
+            tpgDebug.Margin = new Padding(0);
+            tpgDebug.Name = "tpgDebug";
+            tpgDebug.Size = new Size(630, 422);
+            tpgDebug.TabIndex = 1;
+            tpgDebug.Text = "Debug";
+            tpgDebug.UseVisualStyleBackColor = true;
             // 
             // PerchanceBox
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BorderStyle = BorderStyle.FixedSingle;
-            Controls.Add(ptbImage);
-            Controls.Add(lblError);
-            Controls.Add(wvCore);
+            Controls.Add(tbcMain);
             Controls.Add(tsImage);
             Name = "PerchanceBox";
             Size = new Size(638, 478);
@@ -188,6 +230,9 @@
             ((System.ComponentModel.ISupportInitialize)ptbImage).EndInit();
             cmsImage.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)wvCore).EndInit();
+            tbcMain.ResumeLayout(false);
+            tpgResult.ResumeLayout(false);
+            tpgDebug.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -207,5 +252,8 @@
         private ToolStripMenuItem mniOpenWith;
         private Microsoft.Web.WebView2.WinForms.WebView2 wvCore;
         private ToolStripMenuItem mniOpenLocation;
+        private TabControl tbcMain;
+        private TabPage tpgResult;
+        private TabPage tpgDebug;
     }
 }

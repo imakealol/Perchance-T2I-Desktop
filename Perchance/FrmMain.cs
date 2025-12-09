@@ -13,7 +13,7 @@ namespace Perchance
         private static partial Regex ImportRegex();
 
         private static readonly Random rand = new((int)(DateTime.Now.Ticks % int.MaxValue));
-        private List<PollinationBox> clients = [];
+        private List<IBox> clients = [];
         private readonly Configuration cfg = Configuration.Load();
 
         private readonly Dictionary<string, List<string>> repl = new()
