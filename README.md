@@ -1,87 +1,80 @@
-# Perchance Text to Image Desktop Application
-![.NET Desktop](https://github.com/manh9011/Perchance-T2I-Desktop/actions/workflows/dotnet-desktop.yml/badge.svg)
+# Perchance T2I Desktop
 
-## Overview
+[![Tauri Build](https://github.com/manh9011/Perchance-T2I-Desktop/actions/workflows/tauri-build.yml/badge.svg)](https://github.com/manh9011/Perchance-T2I-Desktop/actions)
+![License](https://img.shields.io/github/license/manh9011/Perchance-T2I-Desktop)
+![Rust](https://img.shields.io/badge/rust-v1.75+-orange.svg)
+![Vue](https://img.shields.io/badge/vue-v3.5+-green.svg)
 
-The **Perchance Text to Image Desktop Application** is a powerful tool that allows users to generate images from textual descriptions using the Perchance API. This desktop version provides a user-friendly interface, making it easier for users to interact with the API, generate images, and save them directly to their local storage.
+A powerful, cross-platform desktop application for generating high-quality images from text descriptions using the Perchance API. Built with **Tauri**, **Rust**, and **Vue 3**, it provides a lightning-fast and premium user experience.
 
-## Features
+![Main UI](https://github.com/manh9011/Perchance-T2I-Desktop/blob/master/assets/main_ui.PNG?raw=true)
 
-- **Text Input**: Users can input any descriptive text to generate an image.
-- **API Integration**: Seamless integration with the Perchance API to convert text into images.
-- **Image Preview**: View the generated image directly within the application.
-- **Save & Export**: Save the generated images to your local storage.
-- **Customizable Settings**: Adjust parameters like style, image resolution, guidance scale.
-- **User-Friendly Interface**: Easy-to-navigate GUI designed for both beginners and advanced users.
+## ✨ Features
 
-## Installation
+- 🎨 **Powerful Generation**: Full integration with Perchance AI for diverse image generation.
+- 🚀 **Hardware Upscaling**: Intelligent image upscaling using **WebSR** for crisp, high-resolution results.
+- 🎭 **Style Management**: 
+    - Extensive **Style Picker** with categorized prompt templates.
+    - **Style Manager** to create, edit, and organize your own custom styles.
+- 📜 **Advanced History**: 
+    - Automatically saves every generation.
+    - Sorting by Date, Seed, or Likes.
+    - Favorite system to keep track of your best results.
+- 🔍 **Interactive Preview**: High-performance image viewer with smooth zoom and pan.
+- 🌓 **Modern Aesthetics**: Sleek dark mode interface built with **PrimeVue** and custom CSS.
+- 🌍 **Internationalization**: Support for multiple languages with prompt translation indicators.
 
-### Prerequisites
+## 🛠️ Tech Stack
 
-- **Operating System**: Windows 10 or higher.
-- **WebView2 Runtime**: Ensure that the Microsoft Edge WebView2 Runtime is installed. You can download it from the [Microsoft website](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+- **Framework**: [Tauri](https://tauri.app/) (Desktop Bridge)
+- **Frontend**: [Vue.js 3](https://vuejs.org/) (Composition API)
+- **State Management**: [Pinia](https://pinia.vuejs.org/)
+- **UI Components**: [PrimeVue](https://primevue.org/)
+- **Styling**: Vanilla CSS & PrimeVue Passthrough (PT)
+- **Language**: Rust & TypeScript
 
-### Download
-
-1. Download the latest release from the [Releases]([https://github.com/manh9011/PerchanceT2I-Desktop/releases) page.
-2. Extract the downloaded ZIP file to your desired location.
-
-### Running the Application
-
-1. Navigate to the extracted folder.
-2. Double-click the `Perchance.exe`.
-
-## Usage
-
-1. **Enter Text**: Type in a description of the image you want to generate.
-2. **Configure Settings**: (Optional) Adjust the settings to customize the output.
-3. **Generate Image**: Click the "Generate" button to create the image.
-4. **Preview & Save**: Preview the image and save it to your local storage.
-5. **View History**: Access the `History` panel to view a list of previously generated images along with their corresponding text inputs. You can re-generate or save these images again directly from the history.
-
-## Self build from code
-
-This guide provides instructions on how to build the `Perchance.csproj` project using the .NET command line interface (CLI).
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- .NET SDK 8.0.* must be installed on your system. You can check if it's installed and its version by running:
+- [Node.js](https://nodejs.org/) (v18+)
+- [Rust](https://www.rust-lang.org/tools/install) (stable)
+- [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (Windows only)
 
-    ```bash
-    dotnet --version
-    ```
+### Development
 
-- If the .NET SDK is not installed, download and install it from the official .NET website: [dotnet.microsoft.com](https://dotnet.microsoft.com/).
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/manh9011/Perchance-T2I-Desktop.git
+   cd Perchance-T2I-Desktop
+   ```
 
-### Build Instructions
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-1. **Navigate to the project directory:**
+3. **Run in development mode**:
+   ```bash
+   npm run tauri dev
+   ```
 
-    Open your terminal or command prompt and change the current directory to the location of your `Perchance.csproj` file. For example:
+### Build
 
-    ```bash
-    cd path/to/your/project
-    ```
+To create a production-ready installer:
+```bash
+npm run tauri build
+```
+The output will be located in `src-tauri/target/release/bundle`.
 
-2. **Restore dependencies:**
+## 📸 Screenshots
 
-    Before building the project, you need to restore the project's dependencies. Run the following command:
+*(Add more screenshots here as the project evolves)*
 
-    ```bash
-    dotnet restore
-    ```
+## 📄 License
 
-    This command will download all necessary dependencies specified in the project file (`Perchance.csproj`).
+This project is licensed under the [MIT License](LICENSE.txt).
 
-3. **Publish the project:**
+---
 
-    To publish the project for deployment, use:
-
-    ```bash
-    dotnet publish /p:PublishProfile=Properties\PublishProfiles\FolderProfile.pubxml
-    ```
-
-    This command will publish the project to the `.\bin\Release\net8.0-windows\publish\win-x86` directory by profile configuration.
-
-## Screenshot
-![main ui](https://github.com/manh9011/PerchanceT2I-Desktop/blob/master/assets/main_ui.PNG?raw=true)
+Developed with ❤️ by [manh9011](https://github.com/manh9011).
