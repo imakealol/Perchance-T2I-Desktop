@@ -68,12 +68,14 @@ npm run tauri build
 The output will be located in `src-tauri/target/release/bundle`.
 
 ## 📸 Screenshots
-
-*(Add more screenshots here as the project evolves)*
+![Main UI](https://github.com/manh9011/Perchance-T2I-Desktop/blob/master/assets/main_ui.PNG?raw=true)
+![Style Manager UI](https://github.com/manh9011/Perchance-T2I-Desktop/blob/master/assets/stylemgr_ui.PNG?raw=true)
+![Upscale UI](https://github.com/manh9011/Perchance-T2I-Desktop/blob/master/assets/upscale_ui.PNG?raw=true)
+![Prompt UI](https://github.com/manh9011/Perchance-T2I-Desktop/blob/master/assets/prompt_ui.PNG?raw=true)
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE.txt).
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
