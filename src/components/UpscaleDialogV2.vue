@@ -5,7 +5,6 @@ import Button from 'primevue/button';
 import SelectButton from 'primevue/selectbutton';
 import ProgressBar from 'primevue/progressbar';
 import Select from 'primevue/select';
-import InputNumber from 'primevue/inputnumber';
 import InputText from 'primevue/inputtext';
 import Checkbox from 'primevue/checkbox';
 import { invoke } from '@tauri-apps/api/core';
