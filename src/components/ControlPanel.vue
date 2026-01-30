@@ -275,7 +275,7 @@ const formattedPreviewNegative = computed(() => {
         <!-- Count -->
         <div class="row">
             <label for="count" class="hint" style="cursor: pointer; min-width: 3rem;">Count {{ store.config.count
-            }}</label>
+                }}</label>
             <Slider v-model="store.config.count" :min="1" :max="30" :step="1" class="flex-1" />
         </div>
 
@@ -315,26 +315,28 @@ const formattedPreviewNegative = computed(() => {
         <!-- Prompt Expand Dialog -->
         <Dialog v-model:visible="promptDialogVisible" header="Edit Prompt & Preview" modal maximizable
             class="prompt-edit-dialog" @show="onDialogShow"
-            :contentStyle="{ height: '100%', display: 'flex', flexDirection: 'column' }">
+            :contentStyle="{ width: '80vw', height: '80vh', display: 'flex', flexDirection: 'column' }">
+            <template #header>
+                <div class="dialog-header-content">
+                    <span class="p-dialog-title">Edit Prompt & Preview</span>
+                    <div class="header-style-selector">
+                        <Button :label="store.config.artStyle" icon="pi pi-palette" severity="secondary" size="small"
+                            class="style-trigger-btn header-btn" @click="toggleDialogStylePicker" />
+                        <Popover ref="dialogStylePickerPopover">
+                            <div class="style-picker-container">
+                                <StylePicker v-model="store.config.artStyle" @select="onDialogStyleSelect" />
+                            </div>
+                        </Popover>
+                    </div>
+                </div>
+            </template>
 
             <div class="dialog-grid">
-                <!-- Row 1: Style Selector -->
-                <div class="grid-full-width style-select-row">
-                    <label class="dialog-label">Style</label>
-                    <Button :label="store.config.artStyle" icon="pi pi-palette" severity="secondary"
-                        class="style-trigger-btn dialog-style-btn" @click="toggleDialogStylePicker" />
-                    <Popover ref="dialogStylePickerPopover">
-                        <div class="style-picker-container">
-                            <StylePicker v-model="store.config.artStyle" @select="onDialogStyleSelect" />
-                        </div>
-                    </Popover>
-                </div>
-
-                <!-- Row 2: Headers -->
+                <!-- Row 1: Headers -->
                 <div class="grid-col-left dialog-label">Prompt</div>
                 <div class="grid-col-right dialog-label preview-label-text">Final Prompt Preview</div>
 
-                <!-- Row 3: Prompt Content -->
+                <!-- Row 2: Prompt Content -->
                 <div class="grid-col-left">
                     <Textarea ref="promptInputRef" v-model="store.config.prompt" class="expanded-textarea" fluid
                         :placeholder="store.config.language !== 'en' ? `Prompt (tự dịch từ ${currentLanguage.label} sang EN)` : 'Enter your prompt here...'" />
@@ -343,11 +345,11 @@ const formattedPreviewNegative = computed(() => {
                     <div class="preview-box" v-html="formattedPreviewPrompt"></div>
                 </div>
 
-                <!-- Row 4: Headers -->
+                <!-- Row 3: Headers -->
                 <div class="grid-col-left dialog-label">Negative</div>
                 <div class="grid-col-right dialog-label preview-label-text">Final Negative Preview</div>
 
-                <!-- Row 5: Negative Content -->
+                <!-- Row 4: Negative Content -->
                 <div class="grid-col-left">
                     <Textarea ref="negativeInputRef" v-model="store.config.negative" class="expanded-textarea small"
                         fluid placeholder="Negative prompt..." />
@@ -520,14 +522,36 @@ const formattedPreviewNegative = computed(() => {
     height: 80vh;
 }
 
+/* Dialog Header Customization */
+.dialog-header-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+    padding-right: 2rem;
+    /* Make space for close button which is absolute usually, or just to be safe */
+}
+
+.header-style-selector {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.header-btn {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.75rem !important;
+}
+
 /* Dialog Grid Layout */
 .dialog-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto 1fr auto auto;
+    grid-template-rows: auto 1fr auto auto;
+    /* Removed the first 'auto' row */
     gap: 0.5rem 1rem;
     flex: 1;
-    /* Make it fill the flex container */
     min-height: 0;
     overflow-y: auto;
     padding-right: 0.5rem;
@@ -543,7 +567,6 @@ const formattedPreviewNegative = computed(() => {
 
 .style-select-row {
     max-width: 400px;
-    /* Limit width of the trigger area */
 }
 
 .dialog-style-btn {
@@ -637,6 +660,12 @@ const formattedPreviewNegative = computed(() => {
 
     .expanded-textarea {
         height: 15rem !important;
+    }
+
+    .header-style-selector {
+        position: static;
+        transform: none;
+        margin-left: auto;
     }
 }
 

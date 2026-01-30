@@ -4,8 +4,12 @@ import { useGeneratorStore } from '../stores/generatorStore';
 import ProgressSpinner from 'primevue/progressspinner';
 import Button from 'primevue/button';
 import UpscaleDialog from './UpscaleDialog.vue';
+import UpscaleDialogV2 from './UpscaleDialogV2.vue';
+import { saveImageWithDialog } from '../utils/saveImage';
 
 const store = useGeneratorStore();
+
+const isTauri = !!(window as any).__TAURI__;
 
 // Zoom and Pan State
 const scale = ref(1);
@@ -15,6 +19,7 @@ const startPos = ref({ x: 0, y: 0 });
 
 // Upscale Dialog State
 const showUpscaleDialog = ref(false);
+const showUpscaleDialogV2 = ref(false);
 
 // Reset zoom when image changes
 watch(() => store.selectedImage?.id, () => {
@@ -93,14 +98,16 @@ const dimensions = computed(() => {
     return '';
 });
 
-const handleDownload = () => {
+const handleDownload = async () => {
     if (!store.selectedImage) return;
-    const link = document.createElement('a');
-    link.href = store.selectedImage.path;
-    link.download = `perchance-${store.selectedImage.seed}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        await saveImageWithDialog({
+            sourceUrl: store.selectedImage.path,
+            defaultFileName: `perchance-${store.selectedImage.seed}.png`
+        });
+    } catch (error) {
+        console.error('Failed to save image', error);
+    }
 };
 </script>
 
@@ -143,8 +150,10 @@ const handleDownload = () => {
                 </div>
 
                 <div class="action-controls" v-if="store.selectedImage.status === 'completed'">
-                    <Button icon="pi pi-bolt" severity="primary" rounded size="small" @click="showUpscaleDialog = true"
-                        v-tooltip.left="'Upscale Image'" />
+                    <Button v-if="!isTauri" icon="pi pi-bolt" severity="primary" rounded size="small"
+                        @click="showUpscaleDialog = true" v-tooltip.left="'Upscale Image (WebSR)'" />
+                    <Button v-if="isTauri" icon="pi pi-arrow-up" severity="info" rounded size="small"
+                        @click="showUpscaleDialogV2 = true" v-tooltip.left="'Upscale Image (RealESRGAN)'" />
                     <Button icon="pi pi-download" severity="secondary" rounded size="small" @click="handleDownload"
                         v-tooltip.left="'Download Image'" />
                     <Button v-if="scale !== 1" icon="pi pi-refresh" severity="secondary" rounded size="small"
@@ -159,6 +168,7 @@ const handleDownload = () => {
         </div>
 
         <UpscaleDialog v-model:visible="showUpscaleDialog" :imageSrc="store.selectedImage?.path || null" />
+        <UpscaleDialogV2 v-model:visible="showUpscaleDialogV2" :imageSrc="store.selectedImage?.path || null" />
     </div>
 </template>
 

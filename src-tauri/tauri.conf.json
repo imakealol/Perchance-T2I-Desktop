@@ -1,35 +1,50 @@
 {
-  "productName": "perchance-t2i",
-  "version": "0.1.0",
-  "identifier": "com.perchance.t2i",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:1420",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "Perchance T2I",
-        "label": "main",
-        "width": 1200,
-        "height": 800
-      }
-    ],
-    "security": {
-      "csp": null
+    "productName": "perchance-t2i",
+    "version": "0.1.0",
+    "identifier": "com.perchance.t2i",
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build",
+        "devUrl": "http://localhost:1420",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "windows": [
+            {
+                "title": "Perchance T2I",
+                "label": "main",
+                "width": 1200,
+                "height": 800
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "resources": [
+            "realesrgan\\models\\realesr-animevideov3-x2.bin",
+            "realesrgan\\models\\realesr-animevideov3-x2.param",
+            "realesrgan\\models\\realesr-animevideov3-x3.bin",
+            "realesrgan\\models\\realesr-animevideov3-x3.param",
+            "realesrgan\\models\\realesr-animevideov3-x4.bin",
+            "realesrgan\\models\\realesr-animevideov3-x4.param",
+            "realesrgan\\models\\realesrgan-x4plus-anime.bin",
+            "realesrgan\\models\\realesrgan-x4plus-anime.param",
+            "realesrgan\\models\\realesrgan-x4plus.bin",
+            "realesrgan\\models\\realesrgan-x4plus.param",
+            "realesrgan\\realesrgan.exe",
+            "realesrgan\\vcomp140.dll",
+            "realesrgan\\vcomp140d.dll"
+        ],
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ]
     }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
-  }
 }

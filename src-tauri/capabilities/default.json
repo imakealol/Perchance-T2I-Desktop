@@ -6,6 +6,8 @@
     "core:default",
     "shell:default",
     "fs:default",
-    "http:default"
+    "fs:write-all",
+    "http:default",
+    "dialog:default"
   ]
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useGeneratorStore } from '../stores/generatorStore';
 import { useStylesStore } from '../stores/stylesStore';
 import { styleList } from '../constants/artStyles';
 import { generateImage } from '../utils/textToImageApi';
@@ -19,6 +20,7 @@ const emit = defineEmits<{
 }>();
 
 const stylesStore = useStylesStore();
+const generatorStore = useGeneratorStore();
 
 const searchQuery = ref('');
 const thumbnails = ref<Record<string, string>>({});
@@ -53,7 +55,7 @@ const generateAndCacheThumbnail = async (styleName: string) => {
             prompt: getThumbnailPrompt(styleName),
             negative: "camera, lens, holding camera, photographer, (worst quality, low quality, normal quality, lowres, low details, oversaturated, undersaturated, overexposed, underexposed, grayscale, bw, bad photo, bad photography, bad art:1.4), (watermark, signature, text font, username, error, logo, words, letters, digits, autograph, trademark, name:1.2), (blur, blurry, grainy), morbid, ugly, asymmetrical, mutated malformed, mutilated, poorly lit, bad shadow, draft, cropped, out of frame, cut off, censored, jpeg artifacts, out of focus, glitch, duplicate, (airbrushed, cartoon, anime, semi-realistic, cgi, render, blender, digital art, manga, sketch, 3d, dual exposure, bad transition, watermark, face, distortion:0.5)",
             artStyle: styleName,
-            model: "zimage",
+            model: generatorStore.config.model,
             guidanceScale: 5,
             width: 256,
             height: 256,

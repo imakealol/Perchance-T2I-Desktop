@@ -16,9 +16,10 @@ export const generateImage = async (config: GeneratorConfig) => {
     params.append("width", config.width.toString());
     params.append("height", config.height.toString());
     params.append("seed", config.seed === -1 ? "-1" : config.seed.toString());
-    params.append("model", "zimage");
+    params.append("model", config.model);
 
     const url = `${PROXY_URL}?${params.toString()}`;
+    console.log(`[API Call] Generating image with model: ${params.get("model")}`);
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Proxy responded with ${response.status}: ${response.statusText}`);

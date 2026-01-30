@@ -217,6 +217,11 @@ const handleUnlike = (event: MouseEvent, id: string) => {
                     <div class="failed-item">
                         <i class="pi pi-exclamation-triangle"></i>
                     </div>
+                    <!-- Synchronized Selection Mark -->
+                    <div class="checkbox-wrapper" :class="{ 'is-selected': isSelected(img.id) }"
+                        @click="toggleSelect(img.id, $event)">
+                        <i v-if="isSelected(img.id)" class="pi pi-check selection-tick"></i>
+                    </div>
                     <button @click="handleDeleteSingle($event, img.id)" class="delete-btn" style="opacity: 1;">
                         <i class="pi pi-times" style="font-size: 0.75rem;"></i>
                     </button>

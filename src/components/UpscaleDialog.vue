@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import Dialog from 'primevue/dialog';
 import Button from 'primevue/button';
 import SelectButton from 'primevue/selectbutton';
 import ProgressBar from 'primevue/progressbar';
+import { saveImageWithDialog } from '../utils/saveImage';
+
 
 const props = defineProps<{
     visible: boolean;
@@ -11,26 +13,33 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits(['update:visible']);
-// ... existing code ...
-
 
 const isVisible = ref(props.visible);
 const isUpscaling = ref(false);
 const upscaleFactor = ref(2);
 const modelQuality = ref<'s' | 'm' | 'l'>('s');
-const modelType = ref<'an' | '3d' | 'rl'>('an'); // Default to Anime
-const sliderPosition = ref(50);
-const upscaledImageUrl = ref<string | null>(null);
-const originalImageBitmap = ref<ImageBitmap | null>(null);
+const modelType = ref<'an' | '3d' | 'rl'>('an');
 
-// Zoom & Pan State
+const upscaledImageUrl = ref<string | null>(null);
+// We'll store drawable objects here
+const originalImg = ref<ImageBitmap | HTMLImageElement | null>(null);
+const upscaledImg = ref<ImageBitmap | HTMLCanvasElement | null>(null);
+
+// Canvas Refs
+const previewAreaRef = ref<HTMLElement | null>(null);
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+const displaySize = ref<{ width: number; height: number } | null>(null);
+
+// State
+const sliderPosition = ref(50);
 const scale = ref(1);
 const offset = ref({ x: 0, y: 0 });
 const isDraggingImage = ref(false);
 const isDraggingSlider = ref(false);
 const startPos = ref({ x: 0, y: 0 });
+// For precise panning we track the offset at start of drag
+const panStartOffset = ref({ x: 0, y: 0 });
 
-// Options for controls
 const scaleOptions = [
     { label: '2x', value: 2 },
     { label: '3x', value: 3 },
@@ -49,14 +58,21 @@ const typeOptions = [
     { label: 'Realistic', value: 'rl' }
 ];
 
+// --- Watchers & Lifecycle ---
+
 watch(() => props.visible, (val) => {
     isVisible.value = val;
-    if (val && props.imageSrc) {
-        // Reset state when opening
-        upscaledImageUrl.value = null;
-        sliderPosition.value = 50;
-        resetZoom();
-        loadOriginalImage();
+    if (val) {
+        if (props.imageSrc) {
+            // Reset
+            upscaledImageUrl.value = null;
+            upscaledImg.value = null;
+            sliderPosition.value = 50;
+            resetZoom();
+            loadOriginalImage();
+        }
+    } else {
+        // cleanup if needed
     }
 });
 
@@ -64,17 +80,170 @@ watch(isVisible, (val) => {
     emit('update:visible', val);
 });
 
+// Redraw when these change
+watch([scale, offset, sliderPosition, upscaledImg, originalImg], () => {
+    requestAnimationFrame(drawCanvas);
+});
+
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(async () => {
+    await nextTick();
+    if (previewAreaRef.value) {
+        resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+                    // Force sync canvas size
+                    const canvas = canvasRef.value;
+                    if (canvas) {
+                        const dpr = window.devicePixelRatio || 1;
+                        canvas.width = Math.floor(entry.contentRect.width * dpr);
+                        canvas.height = Math.floor(entry.contentRect.height * dpr);
+                        canvas.style.width = '100%';
+                        canvas.style.height = '100%';
+
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.resetTransform();
+                            ctx.scale(dpr, dpr);
+                        }
+                    }
+                    requestAnimationFrame(() => {
+                        // Optional: refit if completely resized? 
+                        // For now just redraw.
+                        // fitToScreen(); 
+                        drawCanvas();
+                    });
+                }
+            }
+        });
+        resizeObserver.observe(previewAreaRef.value);
+    }
+    window.addEventListener('resize', drawCanvas);
+});
+
+onBeforeUnmount(() => {
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+    }
+    window.removeEventListener('resize', drawCanvas);
+});
+
+
+// --- Core Logic ---
+
 async function loadOriginalImage() {
     if (!props.imageSrc) return;
     try {
         const response = await fetch(props.imageSrc);
         const blob = await response.blob();
-        originalImageBitmap.value = await createImageBitmap(blob);
+        originalImg.value = await createImageBitmap(blob);
+
+        displaySize.value = {
+            width: originalImg.value.width,
+            height: originalImg.value.height
+        };
+
+        await nextTick();
+        fitToScreen();
+        drawCanvas();
     } catch (e) {
         console.error("Failed to load original image", e);
     }
 }
 
+const fitToScreen = () => {
+    if (!displaySize.value || !previewAreaRef.value) return;
+
+    const containerWidth = previewAreaRef.value.clientWidth;
+    const containerHeight = previewAreaRef.value.clientHeight;
+
+    if (containerWidth === 0 || containerHeight === 0) return;
+
+    const padding = 20;
+    const availableWidth = containerWidth - padding * 2;
+    const availableHeight = containerHeight - padding * 2;
+
+    const scaleW = availableWidth / displaySize.value.width;
+    const scaleH = availableHeight / displaySize.value.height;
+
+    const newScale = Math.min(scaleW, scaleH, 1);
+    scale.value = newScale;
+
+    // Center
+    offset.value = {
+        x: (containerWidth - displaySize.value.width * newScale) / 2,
+        y: (containerHeight - displaySize.value.height * newScale) / 2
+    };
+};
+
+const drawCanvas = () => {
+    const canvas = canvasRef.value;
+    if (!canvas || !displaySize.value || !originalImg.value) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Canvas size management (duplicated in ResizeObserver but good to have safety)
+    const container = previewAreaRef.value;
+    if (container) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = container.getBoundingClientRect();
+        if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            ctx.resetTransform();
+            ctx.scale(dpr, dpr);
+        }
+    }
+
+    // Clear
+    // Note: If using scale(dpr, dpr), we clear based on logical size.
+    // logical width = canvas.width / dpr
+    const logicalW = canvas.width / (window.devicePixelRatio || 1);
+    const logicalH = canvas.height / (window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, logicalW, logicalH);
+
+    const imgX = offset.value.x;
+    const imgY = offset.value.y;
+    const imgW = displaySize.value.width * scale.value;
+    const imgH = displaySize.value.height * scale.value;
+
+    const splitVisualX = imgX + (imgW * (sliderPosition.value / 100));
+
+    // Draw Original
+    ctx.imageSmoothingEnabled = scale.value < 1;
+    // We can draw ImageBitmap directly
+    ctx.drawImage(originalImg.value, imgX, imgY, imgW, imgH);
+
+    // Draw Upscaled
+    if (upscaledImg.value) {
+        ctx.save();
+        ctx.beginPath();
+        // Clip right side
+        // Current Rect: splitVisualX to ... end of screen? or just end of image?
+        // Safest to clip large enough to cover the rest of the screen/image
+        // Use visible area logic
+        ctx.rect(splitVisualX, imgY, imgW - (imgW * (sliderPosition.value / 100)), imgH);
+        ctx.clip();
+
+        ctx.drawImage(upscaledImg.value, imgX, imgY, imgW, imgH);
+        ctx.restore();
+
+        // Draw Divider
+        ctx.beginPath();
+        ctx.moveTo(splitVisualX, imgY);
+        ctx.lineTo(splitVisualX, imgY + imgH);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+};
+
+
+// --- Upscale Logic ---
 
 async function runUpscale() {
     if (!props.imageSrc || isUpscaling.value) return;
@@ -87,17 +256,12 @@ async function runUpscale() {
         const blob = await response.blob();
         let file = new File([blob], "input.png", { type: "image/png" });
 
-        // Architecture name for WebSR (must be one of the supported networks, e.g. anime4k/cnn-2x-s)
         const networkArchitecture = `anime4k/cnn-2x-${modelQuality.value}`;
-
-        // Specific weight file to load (e.g. cnn-2x-s-an.json)
         const weightFile = `cnn-2x-${modelQuality.value}-${modelType.value}.json`;
         const weightUrl = `./weights/anime4k/${weightFile}`;
 
-        // Setup output canvas
         const outCanvas = document.createElement("canvas");
 
-        // Initial 2x upscale
         await upscalePreview2x({
             file,
             networkName: networkArchitecture,
@@ -105,12 +269,10 @@ async function runUpscale() {
             outCanvas
         });
 
-        // For 4x, run it again on the result
         if (upscaleFactor.value === 4) {
             const blob2 = await new Promise<Blob | null>(r => outCanvas.toBlob(r));
             if (!blob2) throw new Error("Canvas to Blob failed");
             const file2 = new File([blob2], "pass2.png", { type: "image/png" });
-
             await upscalePreview2x({
                 file: file2,
                 networkName: networkArchitecture,
@@ -122,42 +284,42 @@ async function runUpscale() {
             const blob2 = await new Promise<Blob | null>(r => outCanvas.toBlob(r));
             if (!blob2) throw new Error("Canvas to Blob failed");
             const file2 = new File([blob2], "pass2.png", { type: "image/png" });
-
             await upscalePreview2x({
                 file: file2,
                 networkName: networkArchitecture,
                 weightUrl: weightUrl,
                 outCanvas
             });
-            // Now outCanvas is 4x. We need to resize to 3x.
+            // Resize to 3x
             const w4x = outCanvas.width;
             const h4x = outCanvas.height;
             const w3x = Math.round(w4x * 0.75);
             const h3x = Math.round(h4x * 0.75);
-
             const finalCanvas = document.createElement('canvas');
             finalCanvas.width = w3x;
             finalCanvas.height = h3x;
             const ctx = finalCanvas.getContext('2d');
             ctx?.drawImage(outCanvas, 0, 0, w3x, h3x);
-
-            // Copy back to outCanvas
             outCanvas.width = w3x;
             outCanvas.height = h3x;
             outCanvas.getContext('2d')?.drawImage(finalCanvas, 0, 0);
         }
 
+        // Store result for download and drawing
         upscaledImageUrl.value = outCanvas.toDataURL("image/png");
+        // For drawing, we can just use the canvas or create a bitmap. 
+        // Using CreateImageBitmap is async but efficient.
+        upscaledImg.value = await createImageBitmap(outCanvas);
+
+        drawCanvas();
 
     } catch (e) {
         console.error("Upscale failed", e);
-        // alert("Upscale failed: " + e);
     } finally {
         isUpscaling.value = false;
     }
 }
 
-// Adapted from user request
 async function upscalePreview2x(opts: {
     file: File;
     networkName: string;
@@ -166,17 +328,12 @@ async function upscalePreview2x(opts: {
     outCanvas: HTMLCanvasElement;
 }) {
     const { file, networkName, weightUrl, outCanvas } = opts;
-
     const gpu = await WebSR.initWebGPU();
-    if (!gpu) throw new Error("WebGPU not supported (try latest Chrome/Edge).");
+    if (!gpu) throw new Error("WebGPU not supported.");
 
-    console.log(`Loading weights from: ${weightUrl}`);
     const weights = await (await fetch(weightUrl)).json();
-
     const bmp = await createImageBitmap(file);
-    console.log(`Original Dimensions: ${bmp.width}x${bmp.height} | Network: ${networkName}`);
 
-    // Output is 2x
     outCanvas.width = bmp.width * 2;
     outCanvas.height = bmp.height * 2;
 
@@ -187,79 +344,87 @@ async function upscalePreview2x(opts: {
         gpu,
         canvas: outCanvas,
     });
-
-    // Pass ImageBitmap directly instead of intermediate canvas
     await websr.render(bmp);
 }
 
-function downloadImage() {
+async function downloadImage() {
     if (!upscaledImageUrl.value) return;
-    const link = document.createElement('a');
-    link.href = upscaledImageUrl.value;
-    link.download = `upscaled-${upscaleFactor.value}x-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        await saveImageWithDialog({
+            dataUrl: upscaledImageUrl.value,
+            defaultFileName: `upscaled-${upscaleFactor.value}x-${Date.now()}.png`
+        });
+    } catch (error) {
+        console.error('Failed to save upscaled image', error);
+    }
 }
 
-// Zoom / Pan Logic
+
+// --- Interaction Logic ---
+
 const handleWheel = (e: WheelEvent) => {
     e.preventDefault();
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
-
-    // Mouse position relative to the container (0,0 is top-left)
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const delta = e.deltaY > 0 ? 0.9 : 1.1; // Zoom out (0.9) or in (1.1)
-
-    // Limit between 1% (0.01) and 999% (9.99)
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.min(Math.max(scale.value * delta, 0.01), 9.99);
 
-    // Calculate the point under the mouse in "world" coordinates (relative to the unscaled content)
-    // world_pos = (mouse_pos - current_offset) / current_scale
+    // Zoom towards mouse
     const worldX = (x - offset.value.x) / scale.value;
     const worldY = (y - offset.value.y) / scale.value;
 
-    // Calculate new offset to keep the world point under the mouse
-    // new_offset = mouse_pos - (world_pos * new_scale)
     offset.value = {
         x: x - worldX * newScale,
         y: y - worldY * newScale
     };
-
     scale.value = newScale;
 };
 
 const handleMouseDown = (e: MouseEvent) => {
-    // Only drag if zoomed in or if desired
-    if (scale.value > 1 || true) { // Allow panning even at 1x if it helps
-        isDraggingImage.value = true;
-        startPos.value = { x: e.clientX - offset.value.x, y: e.clientY - offset.value.y };
+    const container = previewAreaRef.value;
+    if (!container || !displaySize.value) return;
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Check slider hit
+    if (upscaledImg.value) {
+        const imgW = displaySize.value.width * scale.value;
+        const sliderVisualX = offset.value.x + (imgW * (sliderPosition.value / 100));
+        if (Math.abs(mouseX - sliderVisualX) < 30) {
+            isDraggingSlider.value = true;
+            return;
+        }
     }
+
+    isDraggingImage.value = true;
+    startPos.value = { x: mouseX, y: mouseY };
+    panStartOffset.value = { ...offset.value };
 };
 
 const handleMouseMove = (e: MouseEvent) => {
-    if (isDraggingImage.value) {
-        offset.value = {
-            x: e.clientX - startPos.value.x,
-            y: e.clientY - startPos.value.y
-        };
-    }
+    const container = previewAreaRef.value;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
 
-    // Handle slider drag if active
-    if (isDraggingSlider.value) {
-        // Calculate percentage within the compare-view
-        // We need reference to compare-view or just calculate roughly based on movement?
-        // Better to get bounding rect of the container.
-        const container = (e.target as Element).closest('.compare-view');
-        if (container) {
-            const rect = container.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
-            sliderPosition.value = percent;
-        }
+    if (isDraggingSlider.value && displaySize.value) {
+        const imgX = offset.value.x;
+        const imgW = displaySize.value.width * scale.value;
+        let percent = ((mouseX - imgX) / imgW) * 100;
+        percent = Math.max(0, Math.min(100, percent));
+        sliderPosition.value = percent;
+    } else if (isDraggingImage.value) {
+        const dx = mouseX - startPos.value.x;
+        const dy = mouseY - startPos.value.y;
+        offset.value = {
+            x: panStartOffset.value.x + dx,
+            y: panStartOffset.value.y + dy
+        };
     }
 };
 
@@ -268,49 +433,45 @@ const handleMouseUp = () => {
     isDraggingSlider.value = false;
 };
 
-const startSliderDrag = (e: MouseEvent) => {
-    e.stopPropagation(); // prevent pan start
-    isDraggingSlider.value = true;
-
-    // We should bind a specific mouse move on body/window to keep dragging even if mouse leaves handle?
-    // For now rely on container mouse move + mouseleave
-};
-
 const resetZoom = () => {
     scale.value = 1;
     offset.value = { x: 0, y: 0 };
+    fitToScreen();
 };
 
 const containerStyle = computed(() => ({
-    transform: `translate(${offset.value.x}px, ${offset.value.y}px) scale(${scale.value})`,
     cursor: isDraggingImage.value ? 'grabbing' : 'grab',
-    transition: (isDraggingImage.value || isDraggingSlider.value) ? 'none' : 'transform 0.1s ease-out',
     width: '100%',
     height: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    transformOrigin: '0 0'
+    position: 'relative' as any
 }));
 
-// Slider logic
-const sliderStyle = computed(() => ({
-    left: `${sliderPosition.value}%`
-}));
+// Slider cursor logic (floating element over canvas to show cursor when hovering trigger zone)
+const sliderTriggerStyle = computed(() => {
+    if (!displaySize.value || !upscaledImg.value) return { display: 'none' };
+    const imgW = displaySize.value.width * scale.value;
+    const splitX = offset.value.x + (imgW * (sliderPosition.value / 100));
 
-const afterImageClip = computed(() => ({
-    clipPath: `inset(0 0 0 ${sliderPosition.value}%)`
-}));
+    return {
+        left: `${splitX}px`,
+        top: `${offset.value.y}px`,
+        height: `${displaySize.value.height * scale.value}px`,
+        cursor: 'col-resize',
+        width: '30px',
+        position: 'absolute' as any,
+        transform: 'translateX(-50%)',
+        zIndex: 5,
+        display: 'block'
+    };
+});
 
 </script>
 
 <template>
     <Dialog v-model:visible="isVisible" modal class="upscale-dialog" :dismissableMask="true" maximizable
-        :contentStyle="{ height: '100%', display: 'flex', flexDirection: 'column' }">
-        <!-- Custom Header -->
+        :contentStyle="{ width: '80vw', height: '80vh', display: 'flex', flexDirection: 'column' }">
         <template #header>
             <div class="custom-header">
-
                 <div class="header-controls">
                     <div class="control-group-mini">
                         <span class="label-mini">UPSCALE</span>
@@ -337,47 +498,35 @@ const afterImageClip = computed(() => ({
                 </div>
 
                 <div class="header-actions">
-                    <span v-if="scale !== 1" class="zoom-info">{{ Math.round(scale * 100) }}%</span>
-                    <Button v-if="scale !== 1" icon="pi pi-refresh" severity="secondary" text rounded size="small"
-                        @click="resetZoom" v-tooltip.bottom="'Reset Zoom'" />
+                    <span v-if="scale" class="zoom-info">{{ Math.round(scale * 100) }}%</span>
+                    <Button icon="pi pi-refresh" severity="secondary" text rounded size="small" @click="resetZoom"
+                        v-tooltip.bottom="'Reset Zoom'" />
                 </div>
             </div>
         </template>
 
         <div class="upscale-container">
-            <div class="preview-area" @wheel="handleWheel" @mousedown="handleMouseDown" @mousemove="handleMouseMove"
-                @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
+            <!-- Canvas Preview Area -->
+            <div class="preview-area-wrapper">
+                <div ref="previewAreaRef" class="preview-area" @wheel="handleWheel" @mousedown="handleMouseDown"
+                    @mousemove="handleMouseMove" @mouseup="handleMouseUp" @mouseleave="handleMouseUp">
 
-                <div v-if="props.imageSrc" class="zoom-wrapper" :style="containerStyle">
-                    <div class="compare-view">
-                        <!-- Before Image (Background) -->
-                        <img :src="props.imageSrc" class="image-layer before" alt="Original" @dragstart.prevent />
+                    <div class="zoom-wrapper" :style="containerStyle">
+                        <div class="compare-view-canvas">
+                            <canvas ref="canvasRef"></canvas>
+                            <!-- Invisible trigger for slider hover cursor -->
+                            <div v-if="upscaledImageUrl" :style="sliderTriggerStyle"></div>
 
-                        <!-- After Image (Foreground, clipped) -->
-                        <div v-if="upscaledImageUrl" class="image-layer after-container" :style="afterImageClip">
-                            <img :src="upscaledImageUrl" class="image-layer after" alt="Upscaled" @dragstart.prevent />
-                        </div>
-
-                        <!-- Slider UI -->
-                        <template v-if="upscaledImageUrl">
-                            <!-- Slider Handle -->
-                            <div class="slider-handle" :style="sliderStyle" @mousedown="startSliderDrag">
-                                <div class="line"></div>
-                                <div class="handle-button">
-                                    <i class="pi pi-arrows-h"></i>
-                                </div>
+                            <div v-if="!upscaledImageUrl && !isUpscaling" class="placeholder-overlay">
+                                <p>Select options and click Upscale</p>
                             </div>
-                        </template>
-
-                        <div v-else class="placeholder-overlay" v-if="!isUpscaling">
-                            <p>Select options and click Upscale</p>
                         </div>
                     </div>
-                </div>
 
-                <div v-if="isUpscaling" class="loading-overlay">
-                    <ProgressBar mode="indeterminate" style="height: 6px; width: 200px" />
-                    <p>Upscaling...</p>
+                    <div v-if="isUpscaling" class="loading-overlay">
+                        <ProgressBar mode="indeterminate" :showValue="false" style="height: 6px; width: 200px" />
+                        <p>Upscaling...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -395,22 +544,49 @@ const afterImageClip = computed(() => ({
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
 
-/* Custom header styling */
+.preview-area-wrapper {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+    background: #111;
+    background-image:
+        linear-gradient(45deg, #1a1a1a 25%, transparent 25%),
+        linear-gradient(-45deg, #1a1a1a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1a1a1a 75%),
+        linear-gradient(-45deg, transparent 75%, #1a1a1a 75%);
+    background-size: 20px 20px;
+}
+
+.preview-area {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.zoom-wrapper {
+    transform-origin: top left;
+    width: 100%;
+    height: 100%;
+}
+
+.compare-view-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+
+/* Custom header styling (Copied from original) */
 .custom-header {
     display: flex;
     align-items: center;
     gap: 1.5rem;
     width: 100%;
-    /* Ensure it doesn't overlap with close icon provided by Dialog */
     padding-right: 2rem;
-}
-
-.header-title {
-    font-weight: 700;
-    font-size: 1.1rem;
-    white-space: nowrap;
 }
 
 .header-controls {
@@ -437,122 +613,9 @@ const afterImageClip = computed(() => ({
     text-transform: uppercase;
 }
 
-/* Adjust SelectButton in mini mode */
 :deep(.p-selectbutton-button) {
     padding: 0.25rem 0.5rem !important;
     font-size: 0.75rem !important;
-}
-
-.preview-area {
-    flex: 1;
-    background: var(--p-surface-900);
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-    /* Cursor handling is on containerStyle */
-}
-
-
-.zoom-wrapper {
-    /* Transforms applied here */
-    transform-origin: 0 0;
-}
-
-.compare-view {
-    position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Define a max size references */
-}
-
-/*
-Logic for sizing:
-The 'before' image drives the layout. It is constrained by max-width/height of the container.
-The 'after' image assumes it has the same aspect ratio and fully fills the 'before' image's box.
-This ensures they overlap perfectly regardless of resolution differences.
-*/
-
-.image-layer {
-    user-select: none;
-    -webkit-user-drag: none;
-    pointer-events: none;
-    /* Let clicks pass to container */
-}
-
-.before {
-    display: block;
-    position: relative;
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
-    image-rendering: pixelated;
-    /* Show pixels clearly when zoomed */
-}
-
-.after-container {
-    padding: 0;
-    margin: 0;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    /* content is clipped by clip-path in inline style */
-}
-
-.after {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: fill;
-    /* Stretch to fill exactly the 'before' image box */
-}
-
-/* Slider elements */
-.slider-handle {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 40px;
-    /* Wider hit area for easy grabbing */
-    transform: translateX(-50%);
-    /* Center the hit area */
-    z-index: 10;
-    pointer-events: auto;
-    /* Enable interaction */
-    display: flex;
-    justify-content: center;
-    cursor: col-resize;
-}
-
-.line {
-    width: 2px;
-    background: white;
-    height: 100%;
-    box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
-    margin-left: -1px;
-}
-
-.handle-button {
-    position: absolute;
-    top: 50%;
-    /* left: 0; */
-    /* Removed as it's centered by flex */
-    transform: translate(0, -50%);
-    /* Adjusted for flex centering */
-    width: 24px;
-    height: 24px;
-    background: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #333;
-    font-size: 0.8rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .placeholder-overlay {
