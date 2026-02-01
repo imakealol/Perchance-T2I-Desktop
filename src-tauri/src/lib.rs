@@ -5,6 +5,8 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Deserialize)]
@@ -123,6 +125,8 @@ async fn run_realesrgan(app: AppHandle, request: UpscaleRequest) -> Result<Upsca
     let models_dir = strip_unc_prefix(&models_dir);
 
     let mut command = Command::new(&exe_path);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(0x08000000);
     command
       .arg("-i")
       .arg(&input_path)
@@ -254,7 +258,11 @@ async fn get_realesrgan_gpus(app: AppHandle) -> Result<Vec<GpuInfo>, String> {
 
   // Run with -i and -o dummy paths and -g -1 (which usually lists GPUs and exits? Or errors?)
   // Using -h is the safest "list and exit"
-  let output = Command::new(&exe_path)
+  let mut cmd = Command::new(&exe_path);
+  #[cfg(target_os = "windows")]
+  cmd.creation_flags(0x08000000);
+  
+  let output = cmd
     .arg("-h")
     .output()
     .map_err(|e| format!("Failed to run RealESRGAN for info: {e}"))?;
