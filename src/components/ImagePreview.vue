@@ -5,11 +5,11 @@ import ProgressSpinner from 'primevue/progressspinner';
 import Button from 'primevue/button';
 import UpscaleDialog from './UpscaleDialog.vue';
 import UpscaleDialogV2 from './UpscaleDialogV2.vue';
-import { saveImageWithDialog } from '../utils/saveImage';
+import { saveImageWithDialog, isTauri } from '../utils/saveImage';
 
 const store = useGeneratorStore();
 
-const isTauri = !!(window as any).__TAURI__;
+const isTauriApp = isTauri();
 
 // Zoom and Pan State
 const scale = ref(1);
@@ -150,9 +150,9 @@ const handleDownload = async () => {
                 </div>
 
                 <div class="action-controls" v-if="store.selectedImage.status === 'completed'">
-                    <Button v-if="!isTauri" icon="pi pi-bolt" severity="primary" rounded size="small"
+                    <Button v-if="!isTauriApp" icon="pi pi-bolt" severity="primary" rounded size="small"
                         @click="showUpscaleDialog = true" v-tooltip.left="'Upscale Image (WebSR)'" />
-                    <Button v-if="isTauri" icon="pi pi-arrow-up" severity="info" rounded size="small"
+                    <Button v-if="isTauriApp" icon="pi pi-arrow-up" severity="info" rounded size="small"
                         @click="showUpscaleDialogV2 = true" v-tooltip.left="'Upscale Image (RealESRGAN)'" />
                     <Button icon="pi pi-download" severity="secondary" rounded size="small" @click="handleDownload"
                         v-tooltip.left="'Download Image'" />

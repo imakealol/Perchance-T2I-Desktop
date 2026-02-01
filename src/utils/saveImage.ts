@@ -1,5 +1,5 @@
-const isTauri = () => {
-    return '__TAURI__' in window;
+export const isTauri = () => {
+    return !!(window as any).__TAURI_INTERNALS__;
 };
 
 function dataUrlToUint8Array(dataUrl: string): Uint8Array {
